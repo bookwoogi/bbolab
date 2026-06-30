@@ -5,9 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="공부방">
+<meta name="apple-mobile-web-app-title" content="새샘수학">
 <meta name="theme-color" content="#ffffff">
-<title>공부방 관리</title>
+<title>새샘수학</title>
 <style>
 :root {
   --primary: #3B82F6;
@@ -158,6 +158,31 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
 
 /* 연락처 링크 */
 .contact-link { color: var(--primary); text-decoration: none; }
+
+/* 월별 통계 */
+.month-nav { display: flex; align-items: center; justify-content: space-between; background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; margin-bottom: 12px; }
+.month-arrow { background: var(--surface); border: none; width: 36px; height: 36px; border-radius: 8px; font-size: 14px; color: var(--primary); cursor: pointer; }
+.month-arrow:active { opacity: 0.6; }
+.month-label { font-size: 15px; font-weight: 700; color: var(--text); }
+.stat-row { padding: 0; border-bottom: 1px solid var(--border); }
+.stat-row:last-child { border-bottom: none; }
+.stat-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; }
+.stat-count { font-size: 14px; font-weight: 700; color: var(--primary); background: var(--primary-light); padding: 4px 12px; border-radius: 20px; white-space: nowrap; }
+.stat-chevron { font-size: 12px; color: var(--text-muted); transition: transform 0.2s; }
+.stat-row.open .stat-chevron { transform: rotate(90deg); }
+.stat-detail { display: none; padding: 0 16px 12px 68px; }
+.stat-row.open .stat-detail { display: block; }
+.stat-day { display: flex; gap: 12px; padding: 6px 0; font-size: 13px; border-top: 1px dashed var(--border); }
+.stat-day-date { color: var(--text-secondary); width: 70px; flex-shrink: 0; }
+.stat-day-times { color: var(--text-muted); }
+
+/* SMS 토글 스위치 */
+#sms-toggle + span::before {
+  content: ""; position: absolute; height: 24px; width: 24px;
+  left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.2s;
+}
+#sms-toggle:checked + span::before { transform: translateX(20px); }
+#sms-toggle:not(:checked) + span { background: var(--text-muted) !important; }
 </style>
 </head>
 <body>
@@ -167,7 +192,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
   <div class="header">
     <div class="header-top">
       <div>
-        <div class="header-title">📚 우리 공부방</div>
+        <div class="header-title">📚 새샘수학</div>
         <div class="header-date" id="header-date"></div>
       </div>
       <div class="header-badge" id="header-badge">재실 0명</div>
@@ -205,6 +230,19 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
             <option value="">학생 선택...</option>
           </select>
           <button class="btn btn-primary" onclick="quickCheckIn()">입실</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-inner" style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--text)">🔔 입퇴실 문자 알림</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">현재 <span id="sms-status-text">켜짐</span> · 입퇴실 시 부모님께 문자 전송</div>
+          </div>
+          <label style="position:relative;display:inline-block;width:50px;height:30px;flex-shrink:0">
+            <input type="checkbox" id="sms-toggle" onchange="toggleSMS()" checked style="opacity:0;width:0;height:0">
+            <span style="position:absolute;cursor:pointer;inset:0;background:var(--primary);border-radius:30px;transition:0.2s"></span>
+          </label>
         </div>
       </div>
 
@@ -254,8 +292,15 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
           <div class="empty-text">오늘 기록이 없어요</div>
         </div>
       </div>
-      <div class="section-title">전체 기록 보기</div>
-      <div class="card" id="all-log-card"></div>
+
+      <div class="section-title">월별 출석 통계</div>
+      <!-- 월 선택 바 -->
+      <div class="month-nav">
+        <button class="month-arrow" onclick="changeMonth(-1)">◀</button>
+        <div class="month-label" id="month-label">2026년 6월</div>
+        <button class="month-arrow" onclick="changeMonth(1)">▶</button>
+      </div>
+      <div class="card" id="month-stat-card"></div>
     </div>
 
   </div>
@@ -385,6 +430,7 @@ function init() {
   renderSchedule();
   renderLog();
   updateQuickSelect();
+  updateSMSToggleUI();
 }
 
 function updateHeader() {
@@ -448,25 +494,69 @@ function checkIn(id) {
   const s = students.find(x=>x.id===id);
   if (!s || s.present) return;
   s.present = true;
-  logs.push({ sid:id, name:s.name, date:todayKey, time:nowTime(), type:'in' });
+  const t = nowTime();
+  logs.push({ sid:id, name:s.name, date:todayKey, time:t, type:'in' });
   save();
   renderDashboard();
   renderLog();
   updateQuickSelect();
   showToast('✅ ' + s.name + ' 입실 완료');
+  maybeSendSMS(s, 'in', t);
 }
 
 function checkOut(id) {
   const s = students.find(x=>x.id===id);
   if (!s || !s.present) return;
   s.present = false;
-  logs.push({ sid:id, name:s.name, date:todayKey, time:nowTime(), type:'out' });
+  const t = nowTime();
+  logs.push({ sid:id, name:s.name, date:todayKey, time:t, type:'out' });
   save();
   renderDashboard();
   renderLog();
   updateQuickSelect();
   showToast('👋 ' + s.name + ' 퇴실 완료');
+  maybeSendSMS(s, 'out', t);
 }
+
+// ── SMS 반자동 발송 ──────────────────────────────────────
+// 입퇴실 시 부모님 번호로 문자 앱을 열고 내용을 미리 채워줌.
+// "보내기"만 누르면 발송됨 (무료).
+function maybeSendSMS(s, type, time) {
+  if (!smsEnabled()) return;          // 설정에서 꺼두면 발송 안 함
+  if (!s.phone) {                     // 부모님 번호 없으면 건너뜀
+    showToast('⚠️ ' + s.name + ' 부모님 번호가 없어요');
+    return;
+  }
+  const academyName = '새샘수학';
+  const word = (type === 'in') ? '등원' : '하원';
+  const body = `[${academyName}] ${s.name} 학생이 ${time}에 ${word}했습니다.`;
+  // 번호에서 하이픈/공백 제거
+  const num = s.phone.replace(/[^0-9+]/g, '');
+  // iOS는 sms:번호&body=, 안드로이드는 sms:번호?body= 형식이 더 안정적
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const sep = isIOS ? '&' : '?';
+  const url = `sms:${num}${sep}body=${encodeURIComponent(body)}`;
+  // 약간의 딜레이 후 문자 앱 열기 (토스트가 보이도록)
+  setTimeout(() => { window.location.href = url; }, 400);
+}
+
+function smsEnabled() {
+  return localStorage.getItem('smsEnabled') !== 'off';
+}
+function toggleSMS() {
+  const on = smsEnabled();
+  localStorage.setItem('smsEnabled', on ? 'off' : 'on');
+  updateSMSToggleUI();
+  showToast(on ? '🔕 문자 알림 꺼짐' : '🔔 문자 알림 켜짐');
+}
+function updateSMSToggleUI() {
+  const el = document.getElementById('sms-toggle');
+  if (!el) return;
+  const on = smsEnabled();
+  el.checked = on;
+  document.getElementById('sms-status-text').textContent = on ? '켜짐' : '꺼짐';
+}
+
 
 function updateQuickSelect() {
   const sel = document.getElementById('quick-select');
@@ -652,28 +742,89 @@ function renderLog() {
       </div>
     `).join('');
   }
-
-  const allCard = document.getElementById('all-log-card');
-  const recent = logs.slice(-40).reverse();
-  if (recent.length === 0) {
-    allCard.innerHTML = '<div class="empty-state"><div class="empty-icon">📂</div><div class="empty-text">기록이 없어요</div></div>';
-  } else {
-    const grouped = {};
-    recent.forEach(l => { if(!grouped[l.date]) grouped[l.date]=[]; grouped[l.date].push(l); });
-    allCard.innerHTML = Object.keys(grouped).map(date => {
-      const [y,m,d] = date.split('-');
-      return `<div style="padding:10px 16px;border-bottom:1px solid var(--border);background:var(--surface);font-size:12px;font-weight:600;color:var(--text-secondary)">${m}월 ${d}일</div>` +
-        grouped[date].map(l=>`
-          <div class="log-item">
-            <div class="log-dot ${l.type==='in'?'dot-in':'dot-out'}"></div>
-            <div class="log-time">${l.time}</div>
-            <div class="log-name">${l.name}</div>
-            <div class="log-type">${l.type==='in'?'입실':'퇴실'}</div>
-          </div>
-        `).join('');
-    }).join('');
-  }
+  renderMonthStat();
 }
+
+// ── 월별 출석 통계 ───────────────────────────────────────
+// 현재 보고 있는 연/월 (기본: 이번 달)
+let statYear = new Date().getFullYear();
+let statMonth = new Date().getMonth() + 1; // 1~12
+
+function changeMonth(delta) {
+  statMonth += delta;
+  if (statMonth < 1) { statMonth = 12; statYear--; }
+  else if (statMonth > 12) { statMonth = 1; statYear++; }
+  renderMonthStat();
+}
+
+function renderMonthStat() {
+  const label = document.getElementById('month-label');
+  if (label) label.textContent = statYear + '년 ' + statMonth + '월';
+  const card = document.getElementById('month-stat-card');
+  if (!card) return;
+
+  const prefix = statYear + '-' + String(statMonth).padStart(2, '0'); // 예: 2026-06
+
+  // 학생별로 그 달에 '입실(in)'한 날짜들을 모음
+  const stat = students.map(s => {
+    // 이 학생의 해당 월 로그
+    const myLogs = logs.filter(l => l.sid === s.id && l.date.startsWith(prefix));
+    // 날짜별로 입실/퇴실 시간 정리
+    const byDate = {};
+    myLogs.forEach(l => {
+      if (!byDate[l.date]) byDate[l.date] = { in: null, out: null };
+      if (l.type === 'in' && !byDate[l.date].in) byDate[l.date].in = l.time;
+      if (l.type === 'out') byDate[l.date].out = l.time;
+    });
+    // 출석일 = 입실 기록이 있는 날의 수
+    const attendedDates = Object.keys(byDate).filter(d => byDate[d].in).sort();
+    return { s, count: attendedDates.length, byDate, attendedDates };
+  });
+
+  // 출석이 있는 학생이 하나도 없으면 빈 상태
+  const anyData = stat.some(x => x.count > 0);
+  if (students.length === 0) {
+    card.innerHTML = '<div class="empty-state"><div class="empty-icon">👤</div><div class="empty-text">등록된 학생이 없어요</div></div>';
+    return;
+  }
+  if (!anyData) {
+    card.innerHTML = '<div class="empty-state"><div class="empty-icon">📂</div><div class="empty-text">' + statMonth + '월 출석 기록이 없어요</div></div>';
+    return;
+  }
+
+  // 출석일 많은 순으로 정렬
+  stat.sort((a, b) => b.count - a.count);
+
+  card.innerHTML = stat.map((x, i) => {
+    const s = x.s;
+    const detail = x.attendedDates.map(d => {
+      const day = parseInt(d.split('-')[2]);
+      const rec = x.byDate[d];
+      const times = (rec.in ? '입실 ' + rec.in : '') + (rec.out ? ' · 퇴실 ' + rec.out : '');
+      return `<div class="stat-day"><span class="stat-day-date">${statMonth}/${day}</span><span class="stat-day-times">${times}</span></div>`;
+    }).join('');
+    return `
+      <div class="stat-row" id="stat-${s.id}">
+        <div class="stat-head" onclick="toggleStat(${s.id})">
+          <div class="avatar ${colorFor(students.indexOf(s))}">${initials(s.name)}</div>
+          <div class="student-info">
+            <div class="student-name">${s.name}</div>
+            <div class="student-sub">${s.grade}</div>
+          </div>
+          <span class="stat-count">${x.count}일 출석</span>
+          <span class="stat-chevron">▶</span>
+        </div>
+        <div class="stat-detail">${detail || '<div style="font-size:13px;color:var(--text-muted);padding:6px 0">상세 기록 없음</div>'}</div>
+      </div>`;
+  }).join('');
+}
+
+function toggleStat(id) {
+  const row = document.getElementById('stat-' + id);
+  if (row) row.classList.toggle('open');
+}
+
+
 
 // ── 토스트 ───────────────────────────────────────────────
 let toastTimer;
