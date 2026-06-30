@@ -137,14 +137,27 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
 /* 모달 */
 .modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: flex-end; justify-content: center; }
 .modal-bg.open { display: flex; }
-.modal { background: var(--white); border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + var(--safe-bottom)); width: 100%; max-width: 430px; }
+.modal { background: var(--white); border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + var(--safe-bottom)); width: 100%; max-width: 430px; max-height: 88vh; overflow-y: auto; }
 .modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
 .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+
+/* 요일별 시간 설정 */
+.day-time-list { display: flex; flex-direction: column; gap: 8px; }
+.day-time-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: var(--radius); transition: all 0.15s; }
+.day-time-row.on { border-color: var(--primary); background: var(--primary-light); }
+.day-toggle { display: flex; align-items: center; gap: 8px; flex: 1; cursor: pointer; }
+.day-toggle input { width: 20px; height: 20px; accent-color: var(--primary); }
+.day-name { font-size: 15px; font-weight: 600; color: var(--text); }
+.day-time-input { width: 110px; padding: 8px 10px !important; font-size: 14px !important; }
+.day-time-row.off .day-time-input { opacity: 0.35; pointer-events: none; }
 
 /* 빈 상태 */
 .empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
 .empty-icon { font-size: 40px; margin-bottom: 10px; }
 .empty-text { font-size: 14px; }
+
+/* 연락처 링크 */
+.contact-link { color: var(--primary); text-decoration: none; }
 </style>
 </head>
 <body>
@@ -272,7 +285,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
 <div class="modal-bg" id="modal-add" onclick="closeModal(event)">
   <div class="modal">
     <div class="modal-handle"></div>
-    <div class="modal-title">새 학생 등록</div>
+    <div class="modal-title" id="modal-title-text">새 학생 등록</div>
     <div class="form-group">
       <label class="form-label">이름</label>
       <input type="text" id="f-name" placeholder="홍길동">
@@ -287,27 +300,23 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
       </select>
     </div>
     <div class="form-group">
+      <label class="form-label">학생 본인 연락처</label>
+      <input type="tel" id="f-student-phone" placeholder="010-0000-0000">
+    </div>
+    <div class="form-group">
       <label class="form-label">부모님 연락처</label>
       <input type="tel" id="f-phone" placeholder="010-0000-0000">
     </div>
     <div class="form-group">
-      <label class="form-label">등원 요일</label>
-      <div style="display:flex;gap:8px;flex-wrap:wrap">
-        <label style="display:flex;align-items:center;gap:4px;font-size:14px"><input type="checkbox" value="월" class="day-cb"> 월</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:14px"><input type="checkbox" value="화" class="day-cb"> 화</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:14px"><input type="checkbox" value="수" class="day-cb"> 수</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:14px"><input type="checkbox" value="목" class="day-cb"> 목</label>
-        <label style="display:flex;align-items:center;gap:4px;font-size:14px"><input type="checkbox" value="금" class="day-cb"> 금</label>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px">
-      <label class="form-label" style="margin:0;align-self:center">등원 시간</label>
-      <input type="time" id="f-time" value="15:00" style="max-width:130px">
+      <label class="form-label">등원 요일 및 시간</label>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">오는 요일만 체크하고, 요일마다 시간을 다르게 정할 수 있어요</p>
+      <div class="day-time-list" id="day-time-list"></div>
     </div>
     <div style="margin-top:20px;display:flex;gap:10px">
       <button class="btn btn-outline" style="flex:1;padding:12px" onclick="document.getElementById('modal-add').classList.remove('open')">취소</button>
-      <button class="btn btn-primary" style="flex:2;padding:12px" onclick="addStudent()">등록하기</button>
+      <button class="btn btn-primary" style="flex:2;padding:12px" id="save-btn" onclick="saveStudent()">등록하기</button>
     </div>
+    <button class="btn btn-danger" id="delete-btn" style="width:100%;padding:12px;margin-top:10px;display:none" onclick="deleteStudent()">🗑 이 학생 삭제하기</button>
   </div>
 </div>
 
@@ -316,13 +325,15 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
 
 <script>
 // ── 데이터 ──────────────────────────────────────────────
-let students = JSON.parse(localStorage.getItem('students') || '[]');
+let students = JSON.parse(localStorage.getItem('students_v2') || 'null');
 let logs = JSON.parse(localStorage.getItem('logs') || '[]');
+let editingId = null;
 const COLORS = ['av-blue','av-green','av-amber','av-purple','av-pink','av-teal'];
+const DAYS = ['월','화','수','목','금'];
 const todayKey = new Date().toISOString().slice(0,10);
 
 function save() {
-  localStorage.setItem('students', JSON.stringify(students));
+  localStorage.setItem('students_v2', JSON.stringify(students));
   localStorage.setItem('logs', JSON.stringify(logs));
 }
 
@@ -332,21 +343,42 @@ function nowTime() {
   const n = new Date();
   return n.getHours().toString().padStart(2,'0') + ':' + n.getMinutes().toString().padStart(2,'0');
 }
+// 학생의 요일 목록 (schedule 객체의 key)
+function studentDays(s) { return Object.keys(s.schedule || {}); }
+
+// ── 기존 데이터 마이그레이션 (v1 → v2) ──────────────────
+function migrateOld() {
+  const old = JSON.parse(localStorage.getItem('students') || 'null');
+  if (old && Array.isArray(old)) {
+    return old.map(s => {
+      const schedule = {};
+      (s.days || []).forEach(d => { schedule[d] = s.time || '15:00'; });
+      return {
+        id: s.id, name: s.name, grade: s.grade,
+        studentPhone: s.studentPhone || '',
+        phone: s.phone || '',
+        schedule, present: s.present || false
+      };
+    });
+  }
+  return null;
+}
 
 // ── 초기화 ───────────────────────────────────────────────
 function init() {
-  // 샘플 데이터 (처음 실행 시)
-  if (students.length === 0) {
-    students = [
-      { id:1, name:'김민준', grade:'초등 5학년', phone:'010-1234-5678', days:['월','수','금'], time:'14:30', present:false },
-      { id:2, name:'이서연', grade:'중학 1학년', phone:'010-2345-6789', days:['화','목'], time:'15:00', present:false },
-      { id:3, name:'박지호', grade:'초등 6학년', phone:'010-3456-7890', days:['월','화','수','목','금'], time:'15:10', present:false },
-      { id:4, name:'최유진', grade:'초등 4학년', phone:'010-4567-8901', days:['월','수','금'], time:'15:30', present:false },
-      { id:5, name:'강현우', grade:'초등 5학년', phone:'010-5678-9012', days:['화','목'], time:'14:00', present:false },
-      { id:6, name:'윤채원', grade:'중학 2학년', phone:'010-6789-0123', days:['월','화','수','목','금'], time:'16:00', present:false },
-    ];
-    save();
+  if (!students) {
+    students = migrateOld();
   }
+  if (!students) {
+    // 샘플 데이터 (처음 실행 시)
+    students = [
+      { id:1, name:'김민준', grade:'초등 5학년', studentPhone:'', phone:'010-1234-5678', schedule:{'월':'14:30','수':'15:00','금':'14:30'}, present:false },
+      { id:2, name:'이서연', grade:'중학 1학년', studentPhone:'', phone:'010-2345-6789', schedule:{'화':'15:00','목':'16:00'}, present:false },
+      { id:3, name:'박지호', grade:'초등 6학년', studentPhone:'', phone:'010-3456-7890', schedule:{'월':'15:10','화':'15:10','수':'15:10','목':'15:10','금':'15:10'}, present:false },
+      { id:4, name:'최유진', grade:'초등 4학년', studentPhone:'', phone:'010-4567-8901', schedule:{'월':'15:30','수':'15:30','금':'15:30'}, present:false },
+    ];
+  }
+  save();
   updateHeader();
   renderDashboard();
   renderStudentList();
@@ -386,9 +418,10 @@ function renderDashboard() {
   const card = document.getElementById('present-card');
   if (present.length === 0) {
     card.innerHTML = '<div class="empty-state"><div class="empty-icon">🏫</div><div class="empty-text">아직 입실한 학생이 없어요</div></div>';
+    updateHeader();
     return;
   }
-  card.innerHTML = present.map((s, i) => {
+  card.innerHTML = present.map((s) => {
     const inLog = logs.filter(l=>l.sid===s.id && l.date===todayKey && l.type==='in').pop();
     return `<div class="student-row">
       <div class="avatar ${colorFor(students.indexOf(s))}">${initials(s.name)}</div>
@@ -449,26 +482,79 @@ function renderStudentList() {
     card.innerHTML = '<div class="empty-state"><div class="empty-icon">👤</div><div class="empty-text">등록된 학생이 없어요</div></div>';
     return;
   }
-  card.innerHTML = students.map((s, i) => `
-    <div class="student-row">
+  card.innerHTML = students.map((s, i) => {
+    // 요일별 시간 표시 (예: 월 14:30 · 수 15:00)
+    const sched = studentDays(s).map(d => `${d} ${s.schedule[d]}`).join(' · ');
+    const studentPhoneHtml = s.studentPhone
+      ? `<div class="student-sub">학생 <a class="contact-link" href="tel:${s.studentPhone}">${s.studentPhone}</a></div>` : '';
+    const parentPhoneHtml = s.phone
+      ? `<div class="student-sub">부모 <a class="contact-link" href="tel:${s.phone}">${s.phone}</a></div>` : '';
+    return `
+    <div class="student-row" onclick="openEditStudent(${s.id})" style="cursor:pointer">
       <div class="avatar ${colorFor(i)}">${initials(s.name)}</div>
       <div class="student-info">
         <div class="student-name">${s.name}</div>
-        <div class="student-sub">${s.grade} · ${s.days.join('')} · ${s.time}</div>
-        <div class="student-sub">${s.phone}</div>
+        <div class="student-sub">${s.grade} · ${sched || '요일 미설정'}</div>
+        ${studentPhoneHtml}
+        ${parentPhoneHtml}
       </div>
       <span class="badge ${s.present ? 'badge-in' : 'badge-out'}">${s.present ? '재실' : '외출'}</span>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
-// ── 학생 추가 ────────────────────────────────────────────
+// ── 요일별 시간 입력 UI 만들기 ──────────────────────────
+function buildDayTimeRows(schedule) {
+  const list = document.getElementById('day-time-list');
+  schedule = schedule || {};
+  list.innerHTML = DAYS.map(d => {
+    const on = schedule[d] !== undefined;
+    const time = schedule[d] || '15:00';
+    return `
+      <div class="day-time-row ${on ? 'on' : 'off'}" id="dtr-${d}">
+        <label class="day-toggle">
+          <input type="checkbox" class="day-cb" value="${d}" ${on ? 'checked' : ''} onchange="toggleDay('${d}')">
+          <span class="day-name">${d}요일</span>
+        </label>
+        <input type="time" class="day-time-input" id="dt-${d}" value="${time}">
+      </div>`;
+  }).join('');
+}
+
+function toggleDay(d) {
+  const row = document.getElementById('dtr-' + d);
+  const cb = row.querySelector('.day-cb');
+  if (cb.checked) { row.classList.add('on'); row.classList.remove('off'); }
+  else { row.classList.remove('on'); row.classList.add('off'); }
+}
+
+// ── 학생 추가/수정 ───────────────────────────────────────
 function openAddStudent() {
-  document.getElementById('modal-add').classList.add('open');
+  editingId = null;
+  document.getElementById('modal-title-text').textContent = '새 학생 등록';
+  document.getElementById('save-btn').textContent = '등록하기';
   document.getElementById('f-name').value = '';
   document.getElementById('f-grade').value = '';
+  document.getElementById('f-student-phone').value = '';
   document.getElementById('f-phone').value = '';
-  document.querySelectorAll('.day-cb').forEach(c => c.checked = false);
+  buildDayTimeRows({});
+  document.getElementById('delete-btn').style.display = 'none';
+  document.getElementById('modal-add').classList.add('open');
+}
+
+function openEditStudent(id) {
+  const s = students.find(x=>x.id===id);
+  if (!s) return;
+  editingId = id;
+  document.getElementById('modal-title-text').textContent = '학생 정보 수정';
+  document.getElementById('save-btn').textContent = '저장하기';
+  document.getElementById('f-name').value = s.name;
+  document.getElementById('f-grade').value = s.grade;
+  document.getElementById('f-student-phone').value = s.studentPhone || '';
+  document.getElementById('f-phone').value = s.phone || '';
+  buildDayTimeRows(s.schedule);
+  document.getElementById('delete-btn').style.display = 'block';
+  document.getElementById('modal-add').classList.add('open');
 }
 
 function closeModal(e) {
@@ -477,33 +563,71 @@ function closeModal(e) {
   }
 }
 
-function addStudent() {
+function saveStudent() {
   const name = document.getElementById('f-name').value.trim();
   const grade = document.getElementById('f-grade').value;
+  const studentPhone = document.getElementById('f-student-phone').value.trim();
   const phone = document.getElementById('f-phone').value.trim();
-  const days = [...document.querySelectorAll('.day-cb:checked')].map(c=>c.value);
-  const time = document.getElementById('f-time').value;
   if (!name || !grade) { showToast('⚠️ 이름과 학년을 입력해주세요'); return; }
-  const id = Date.now();
-  students.push({ id, name, grade, phone, days, time, present:false });
+
+  // 체크된 요일별 시간 모으기
+  const schedule = {};
+  DAYS.forEach(d => {
+    const cb = document.querySelector('.day-cb[value="'+d+'"]');
+    if (cb && cb.checked) {
+      schedule[d] = document.getElementById('dt-'+d).value;
+    }
+  });
+
+  if (editingId) {
+    const s = students.find(x=>x.id===editingId);
+    s.name = name; s.grade = grade; s.studentPhone = studentPhone; s.phone = phone; s.schedule = schedule;
+    showToast('✅ ' + name + ' 정보 수정 완료');
+  } else {
+    students.push({ id: Date.now(), name, grade, studentPhone, phone, schedule, present:false });
+    showToast('✅ ' + name + ' 등록 완료');
+  }
   save();
   document.getElementById('modal-add').classList.remove('open');
   renderStudentList();
   renderSchedule();
   updateQuickSelect();
-  document.getElementById('m-total').textContent = students.length;
-  showToast('✅ ' + name + ' 등록 완료');
+  renderDashboard();
+}
+
+// ── 학생 삭제 ────────────────────────────────────────────
+function deleteStudent() {
+  if (!editingId) return;
+  const s = students.find(x=>x.id===editingId);
+  if (!s) return;
+  if (!confirm(s.name + ' 학생을 삭제할까요?\n삭제하면 되돌릴 수 없어요.')) return;
+  students = students.filter(x=>x.id!==editingId);
+  save();
+  editingId = null;
+  document.getElementById('modal-add').classList.remove('open');
+  renderStudentList();
+  renderSchedule();
+  updateQuickSelect();
+  renderDashboard();
+  showToast('🗑 ' + s.name + ' 삭제 완료');
 }
 
 // ── 시간표 ───────────────────────────────────────────────
 function renderSchedule() {
-  const DAY_COLS = ['월','화','수','목','금'];
-  const times = ['14:00','15:00','16:00','17:00','18:00'];
+  // 등록된 모든 시간을 모아서 행(시간대)을 자동 생성
+  const timeSet = new Set();
+  students.forEach(s => Object.values(s.schedule || {}).forEach(t => timeSet.add(t)));
+  const times = [...timeSet].sort();
   const body = document.getElementById('schedule-body');
+
+  if (times.length === 0) {
+    body.innerHTML = '<tr><td colspan="6" style="padding:24px;color:var(--text-muted)">등록된 일정이 없어요</td></tr>';
+    return;
+  }
+
   body.innerHTML = times.map(t => {
-    const hour = t.split(':')[0];
-    const cells = DAY_COLS.map(d => {
-      const who = students.filter(s=>s.days.includes(d) && s.time.startsWith(hour));
+    const cells = DAYS.map(d => {
+      const who = students.filter(s => s.schedule && s.schedule[d] === t);
       return who.length
         ? `<td class="cell-filled">${who.map(s=>s.name).join('<br>')}</td>`
         : `<td class="cell-empty"></td>`;
@@ -529,9 +653,8 @@ function renderLog() {
     `).join('');
   }
 
-  // 전체 기록 (최근 7일)
   const allCard = document.getElementById('all-log-card');
-  const recent = logs.slice(-30).reverse();
+  const recent = logs.slice(-40).reverse();
   if (recent.length === 0) {
     allCard.innerHTML = '<div class="empty-state"><div class="empty-icon">📂</div><div class="empty-text">기록이 없어요</div></div>';
   } else {
