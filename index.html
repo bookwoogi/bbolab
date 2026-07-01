@@ -113,12 +113,20 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
 
 /* 시간표 */
 .schedule-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.schedule-table { min-width: 380px; border-collapse: collapse; width: 100%; }
+.schedule-table { min-width: 480px; border-collapse: collapse; width: 100%; }
 .schedule-table th, .schedule-table td { padding: 8px 6px; text-align: center; font-size: 12px; border: 1px solid var(--border); }
 .schedule-table th { background: var(--surface); font-weight: 600; color: var(--text-secondary); }
 .schedule-table .time-col { color: var(--text-muted); background: var(--surface); font-size: 11px; }
 .cell-filled { background: #DBEAFE; color: #1D4ED8; font-weight: 500; font-size: 11px; line-height: 1.4; }
 .cell-empty { background: var(--white); }
+
+/* 좌석 방식 시간표 */
+.seat-cell { vertical-align: top; padding: 4px !important; }
+.seat-count { font-size: 10px; font-weight: 700; color: var(--text-secondary); margin-bottom: 3px; }
+.seat-count.seat-full { color: var(--danger); }
+.seat { font-size: 11px; padding: 3px 2px; border-radius: 4px; margin-bottom: 2px; line-height: 1.2; }
+.seat-taken { background: #DBEAFE; color: #1D4ED8; font-weight: 600; }
+.seat-empty { background: var(--surface); color: var(--text-muted); border: 1px dashed var(--border); }
 
 /* 출결 로그 */
 .log-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-bottom: 1px solid var(--border); }
@@ -703,6 +711,8 @@ function deleteStudent() {
 }
 
 // ── 시간표 ───────────────────────────────────────────────
+const MAX_SEATS = 5; // 한 타임 최대 인원
+
 function renderSchedule() {
   // 등록된 모든 시간을 모아서 행(시간대)을 자동 생성
   const timeSet = new Set();
@@ -718,9 +728,18 @@ function renderSchedule() {
   body.innerHTML = times.map(t => {
     const cells = DAYS.map(d => {
       const who = students.filter(s => s.schedule && s.schedule[d] === t);
-      return who.length
-        ? `<td class="cell-filled">${who.map(s=>s.name).join('<br>')}</td>`
-        : `<td class="cell-empty"></td>`;
+      // 5자리를 만들어서 채워진 자리는 이름, 빈 자리는 '빈자리'로 표시
+      let seatsHtml = '';
+      for (let i = 0; i < MAX_SEATS; i++) {
+        if (who[i]) {
+          seatsHtml += `<div class="seat seat-taken">${who[i].name}</div>`;
+        } else {
+          seatsHtml += `<div class="seat seat-empty">빈자리</div>`;
+        }
+      }
+      const isFull = who.length >= MAX_SEATS;
+      const countLabel = `<div class="seat-count ${isFull ? 'seat-full' : ''}">${who.length}/${MAX_SEATS}${isFull ? ' 마감' : ''}</div>`;
+      return `<td class="seat-cell">${countLabel}${seatsHtml}</td>`;
     }).join('');
     return `<tr><td class="time-col">${t}</td>${cells}</tr>`;
   }).join('');
