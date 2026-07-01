@@ -1,0 +1,1132 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="새샘수학">
+<meta name="theme-color" content="#ffffff">
+<title>새샘수학</title>
+<style>
+:root {
+  --primary: #3B82F6;
+  --primary-light: #EFF6FF;
+  --primary-dark: #1D4ED8;
+  --success: #10B981;
+  --success-light: #ECFDF5;
+  --danger: #EF4444;
+  --danger-light: #FEF2F2;
+  --warning: #F59E0B;
+  --warning-light: #FFFBEB;
+  --text: #111827;
+  --text-secondary: #6B7280;
+  --text-muted: #9CA3AF;
+  --border: #E5E7EB;
+  --surface: #F9FAFB;
+  --white: #FFFFFF;
+  --radius: 10px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; background: var(--surface); font-family: -apple-system, BlinkMacSystemFont, 'Noto Sans KR', sans-serif; color: var(--text); }
+
+/* 레이아웃 */
+.app { display: flex; flex-direction: column; height: 100vh; max-width: 430px; margin: 0 auto; background: var(--white); }
+.header { background: var(--white); border-bottom: 1px solid var(--border); padding: 16px 20px 12px; flex-shrink: 0; }
+.header-top { display: flex; align-items: center; justify-content: space-between; }
+.header-title { font-size: 20px; font-weight: 700; color: var(--text); }
+.header-date { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+.header-badge { background: var(--primary-light); color: var(--primary); font-size: 13px; font-weight: 600; padding: 4px 10px; border-radius: 20px; }
+.content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: calc(70px + var(--safe-bottom)); }
+.nav { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 430px; background: var(--white); border-top: 1px solid var(--border); display: flex; padding-bottom: var(--safe-bottom); z-index: 100; }
+.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 10px 0 8px; cursor: pointer; gap: 3px; }
+.nav-icon { font-size: 22px; color: var(--text-muted); }
+.nav-label { font-size: 10px; color: var(--text-muted); font-weight: 500; }
+.nav-item.active .nav-icon, .nav-item.active .nav-label { color: var(--primary); }
+
+/* 섹션 */
+.section { display: none; padding: 16px 20px; }
+.section.active { display: block; }
+.section-title { font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 12px; margin-top: 20px; }
+.section-title:first-child { margin-top: 0; }
+
+/* 카드 */
+.card { background: var(--white); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; margin-bottom: 16px; }
+.card-inner { padding: 14px 16px; }
+
+/* 메트릭 */
+.metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+.metric { background: var(--white); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; }
+.metric-label { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.metric-value { font-size: 26px; font-weight: 700; color: var(--text); }
+.metric.accent { background: var(--primary-light); border-color: transparent; }
+.metric.accent .metric-label { color: #93C5FD; }
+.metric.accent .metric-value { color: var(--primary-dark); }
+
+/* 학생 행 */
+.student-row { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+.student-row:last-child { border-bottom: none; }
+.avatar { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 600; flex-shrink: 0; }
+.av-blue { background: #DBEAFE; color: #1D4ED8; }
+.av-green { background: #D1FAE5; color: #065F46; }
+.av-amber { background: #FEF3C7; color: #92400E; }
+.av-purple { background: #EDE9FE; color: #5B21B6; }
+.av-pink { background: #FCE7F3; color: #9D174D; }
+.av-teal { background: #CCFBF1; color: #0F766E; }
+.student-info { flex: 1; min-width: 0; }
+.student-name { font-size: 15px; font-weight: 600; color: var(--text); }
+.student-sub { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+.student-time { font-size: 12px; color: var(--text-muted); margin-right: 8px; white-space: nowrap; }
+
+/* 배지 */
+.badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 20px; white-space: nowrap; }
+.badge-in { background: var(--success-light); color: var(--success); }
+.badge-out { background: var(--surface); color: var(--text-muted); border: 1px solid var(--border); }
+.badge-warn { background: var(--warning-light); color: var(--warning); }
+
+/* 버튼 */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; font-family: inherit; font-size: 14px; font-weight: 600; padding: 9px 16px; border-radius: var(--radius); border: none; cursor: pointer; transition: opacity 0.15s; }
+.btn:active { opacity: 0.75; }
+.btn-primary { background: var(--primary); color: white; }
+.btn-outline { background: transparent; color: var(--text-secondary); border: 1px solid var(--border); }
+.btn-danger { background: var(--danger-light); color: var(--danger); }
+.btn-success { background: var(--success-light); color: var(--success); }
+.btn-full { width: 100%; padding: 14px; font-size: 15px; border-radius: 12px; }
+.btn-sm { font-size: 12px; padding: 6px 12px; }
+.btn:disabled { opacity: 0.4; cursor: default; }
+
+/* 폼 */
+.form-group { margin-bottom: 14px; }
+label.form-label { font-size: 13px; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px; }
+input[type=text], input[type=tel], input[type=time], select, textarea {
+  width: 100%; padding: 11px 14px; font-size: 15px; font-family: inherit;
+  border: 1.5px solid var(--border); border-radius: var(--radius);
+  background: var(--white); color: var(--text); appearance: none; outline: none;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+
+/* 체크인 패널 */
+.checkin-panel { background: linear-gradient(135deg, #EFF6FF 0%, #F0FDF4 100%); border: 1px solid #BFDBFE; border-radius: 14px; padding: 16px; margin-bottom: 16px; }
+.checkin-label { font-size: 13px; color: #3B82F6; font-weight: 600; margin-bottom: 10px; }
+.checkin-row { display: flex; gap: 10px; }
+
+/* 시간표 */
+.schedule-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.schedule-table { min-width: 480px; border-collapse: collapse; width: 100%; }
+.schedule-table th, .schedule-table td { padding: 8px 6px; text-align: center; font-size: 12px; border: 1px solid var(--border); }
+.schedule-table th { background: var(--surface); font-weight: 600; color: var(--text-secondary); }
+.schedule-table .time-col { color: var(--text-muted); background: var(--surface); font-size: 11px; }
+.cell-filled { background: #DBEAFE; color: #1D4ED8; font-weight: 500; font-size: 11px; line-height: 1.4; }
+.cell-empty { background: var(--white); }
+
+/* 좌석 방식 시간표 */
+.seat-cell { vertical-align: top; padding: 4px !important; }
+.seat-count { font-size: 10px; font-weight: 700; color: var(--text-secondary); margin-bottom: 3px; }
+.seat-count.seat-full { color: var(--danger); }
+.seat { font-size: 11px; padding: 3px 2px; border-radius: 4px; margin-bottom: 2px; line-height: 1.2; }
+.seat-taken { background: #DBEAFE; color: #1D4ED8; font-weight: 600; }
+.seat-empty { background: var(--surface); color: var(--text-muted); border: 1px dashed var(--border); }
+
+/* 출결 로그 */
+.log-item { display: flex; align-items: center; gap: 10px; padding: 11px 16px; border-bottom: 1px solid var(--border); }
+.log-item:last-child { border-bottom: none; }
+.log-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.dot-in { background: var(--success); }
+.dot-out { background: var(--danger); }
+.log-time { font-size: 12px; color: var(--text-muted); width: 42px; flex-shrink: 0; }
+.log-name { font-size: 14px; font-weight: 600; flex: 1; }
+.log-type { font-size: 12px; color: var(--text-secondary); }
+
+/* 알림 토스트 */
+.toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-80px); background: #1F2937; color: white; font-size: 14px; font-weight: 500; padding: 12px 20px; border-radius: 24px; z-index: 999; transition: transform 0.3s ease; white-space: nowrap; }
+.toast.show { transform: translateX(-50%) translateY(0); }
+
+/* 모달 */
+.modal-bg { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; align-items: flex-end; justify-content: center; }
+.modal-bg.open { display: flex; }
+.modal { background: var(--white); border-radius: 20px 20px 0 0; padding: 20px 20px calc(20px + var(--safe-bottom)); width: 100%; max-width: 430px; max-height: 88vh; overflow-y: auto; }
+.modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
+.modal-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+
+/* 요일별 시간 설정 */
+.day-time-list { display: flex; flex-direction: column; gap: 8px; }
+.day-time-row { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1.5px solid var(--border); border-radius: var(--radius); transition: all 0.15s; }
+.day-time-row.on { border-color: var(--primary); background: var(--primary-light); }
+.day-toggle { display: flex; align-items: center; gap: 8px; flex: 1; cursor: pointer; }
+.day-toggle input { width: 20px; height: 20px; accent-color: var(--primary); }
+.day-name { font-size: 15px; font-weight: 600; color: var(--text); }
+.day-time-input { width: 110px; padding: 8px 10px !important; font-size: 14px !important; }
+.day-time-row.off .day-time-input { opacity: 0.35; pointer-events: none; }
+
+/* 빈 상태 */
+.empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+.empty-icon { font-size: 40px; margin-bottom: 10px; }
+.empty-text { font-size: 14px; }
+
+/* 연락처 링크 */
+.contact-link { color: var(--primary); text-decoration: none; }
+
+/* 클라우드 동기화 상태 */
+.cloud-status { font-size: 11px; color: var(--text-muted); margin-top: 6px; cursor: pointer; display: inline-block; }
+.cloud-status.saved { color: var(--success); }
+.cloud-status.error { color: var(--danger); }
+.cloud-status.loading { color: var(--text-muted); }
+
+/* 입회원서 배지 */
+.form-badge { background: var(--danger); color: white; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 20px; margin-left: 4px; }
+
+/* 폼 응답 행 */
+.form-response-row { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer; }
+.form-response-row:active { background: var(--surface); }
+
+/* 월별 통계 */
+.month-nav { display: flex; align-items: center; justify-content: space-between; background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; margin-bottom: 12px; }
+.month-arrow { background: var(--surface); border: none; width: 36px; height: 36px; border-radius: 8px; font-size: 14px; color: var(--primary); cursor: pointer; }
+.month-arrow:active { opacity: 0.6; }
+.month-label { font-size: 15px; font-weight: 700; color: var(--text); }
+.stat-row { padding: 0; border-bottom: 1px solid var(--border); }
+.stat-row:last-child { border-bottom: none; }
+.stat-head { display: flex; align-items: center; gap: 12px; padding: 12px 16px; cursor: pointer; }
+.stat-count { font-size: 14px; font-weight: 700; color: var(--primary); background: var(--primary-light); padding: 4px 12px; border-radius: 20px; white-space: nowrap; }
+.stat-chevron { font-size: 12px; color: var(--text-muted); transition: transform 0.2s; }
+.stat-row.open .stat-chevron { transform: rotate(90deg); }
+.stat-detail { display: none; padding: 0 16px 12px 68px; }
+.stat-row.open .stat-detail { display: block; }
+.stat-day { display: flex; gap: 12px; padding: 6px 0; font-size: 13px; border-top: 1px dashed var(--border); }
+.stat-day-date { color: var(--text-secondary); width: 70px; flex-shrink: 0; }
+.stat-day-times { color: var(--text-muted); }
+
+/* SMS 토글 스위치 */
+#sms-toggle + span::before {
+  content: ""; position: absolute; height: 24px; width: 24px;
+  left: 3px; bottom: 3px; background: white; border-radius: 50%; transition: 0.2s;
+}
+#sms-toggle:checked + span::before { transform: translateX(20px); }
+#sms-toggle:not(:checked) + span { background: var(--text-muted) !important; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- 헤더 -->
+  <div class="header">
+    <div class="header-top">
+      <div>
+        <div class="header-title">📚 새샘수학</div>
+        <div class="header-date" id="header-date"></div>
+      </div>
+      <div class="header-badge" id="header-badge">재실 0명</div>
+    </div>
+    <div class="cloud-status loading" id="cloud-status" onclick="manualSync()">☁️ 동기화 중...</div>
+  </div>
+
+  <!-- 콘텐츠 -->
+  <div class="content">
+
+    <!-- 대시보드 -->
+    <div class="section active" id="sec-dashboard">
+      <div class="metric-grid">
+        <div class="metric accent">
+          <div class="metric-label">지금 재실</div>
+          <div class="metric-value" id="m-present">0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">오늘 등원</div>
+          <div class="metric-value" id="m-today">0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">전체 학생</div>
+          <div class="metric-value" id="m-total">0</div>
+        </div>
+        <div class="metric">
+          <div class="metric-label">퇴실 완료</div>
+          <div class="metric-value" id="m-out">0</div>
+        </div>
+      </div>
+
+      <div class="checkin-panel">
+        <div class="checkin-label">⚡ 빠른 입실</div>
+        <div class="checkin-row">
+          <select id="quick-select" style="flex:1">
+            <option value="">학생 선택...</option>
+          </select>
+          <button class="btn btn-primary" onclick="quickCheckIn()">입실</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-inner" style="display:flex;align-items:center;justify-content:space-between">
+          <div>
+            <div style="font-size:14px;font-weight:600;color:var(--text)">🔔 입퇴실 문자 알림</div>
+            <div style="font-size:12px;color:var(--text-muted);margin-top:2px">현재 <span id="sms-status-text">켜짐</span> · 입퇴실 시 부모님께 문자 전송</div>
+          </div>
+          <label style="position:relative;display:inline-block;width:50px;height:30px;flex-shrink:0">
+            <input type="checkbox" id="sms-toggle" onchange="toggleSMS()" checked style="opacity:0;width:0;height:0">
+            <span style="position:absolute;cursor:pointer;inset:0;background:var(--primary);border-radius:30px;transition:0.2s"></span>
+          </label>
+        </div>
+      </div>
+
+      <div class="section-title">지금 공부방에 있어요</div>
+      <div class="card" id="present-card">
+        <div class="empty-state">
+          <div class="empty-icon">🏫</div>
+          <div class="empty-text">아직 입실한 학생이 없어요</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 학생 관리 -->
+    <div class="section" id="sec-students">
+      <button class="btn btn-primary btn-full" onclick="openAddStudent()" style="margin-bottom:10px">
+        + 새 학생 등록
+      </button>
+      <button class="btn btn-outline btn-full" onclick="openFormResponses()" style="margin-bottom:16px">
+        📋 입회원서에서 불러오기 <span id="form-badge" class="form-badge" style="display:none">0</span>
+      </button>
+      <div class="section-title">전체 학생</div>
+      <div class="card" id="student-list-card"></div>
+    </div>
+
+    <!-- 시간표 -->
+    <div class="section" id="sec-schedule">
+      <div class="section-title">주간 등원 시간표</div>
+      <div class="card">
+        <div class="schedule-wrap">
+          <table class="schedule-table">
+            <thead>
+              <tr>
+                <th class="time-col">시간</th>
+                <th>월</th><th>화</th><th>수</th><th>목</th><th>금</th>
+              </tr>
+            </thead>
+            <tbody id="schedule-body"></tbody>
+          </table>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--text-muted);text-align:center">학생 등록 시 시간표가 자동으로 업데이트돼요</p>
+    </div>
+
+    <!-- 출결 기록 -->
+    <div class="section" id="sec-log">
+      <div class="section-title">오늘 출결 기록</div>
+      <div class="card" id="log-card">
+        <div class="empty-state">
+          <div class="empty-icon">📋</div>
+          <div class="empty-text">오늘 기록이 없어요</div>
+        </div>
+      </div>
+
+      <div class="section-title">월별 출석 통계</div>
+      <!-- 월 선택 바 -->
+      <div class="month-nav">
+        <button class="month-arrow" onclick="changeMonth(-1)">◀</button>
+        <div class="month-label" id="month-label">2026년 6월</div>
+        <button class="month-arrow" onclick="changeMonth(1)">▶</button>
+      </div>
+      <div class="card" id="month-stat-card"></div>
+    </div>
+
+  </div>
+
+  <!-- 하단 내비게이션 -->
+  <nav class="nav">
+    <div class="nav-item active" onclick="switchTab('dashboard',this)">
+      <span class="nav-icon">🏠</span>
+      <span class="nav-label">대시보드</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('students',this)">
+      <span class="nav-icon">👨‍🎓</span>
+      <span class="nav-label">학생</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('schedule',this)">
+      <span class="nav-icon">📅</span>
+      <span class="nav-label">시간표</span>
+    </div>
+    <div class="nav-item" onclick="switchTab('log',this)">
+      <span class="nav-icon">📋</span>
+      <span class="nav-label">출결</span>
+    </div>
+  </nav>
+</div>
+
+<!-- 학생 추가 모달 -->
+<div class="modal-bg" id="modal-add" onclick="closeModal(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title-text">새 학생 등록</div>
+    <div class="form-group">
+      <label class="form-label">이름</label>
+      <input type="text" id="f-name" placeholder="홍길동">
+    </div>
+    <div class="form-group">
+      <label class="form-label">학년</label>
+      <select id="f-grade">
+        <option value="">선택</option>
+        <option>초등 1학년</option><option>초등 2학년</option><option>초등 3학년</option>
+        <option>초등 4학년</option><option>초등 5학년</option><option>초등 6학년</option>
+        <option>중학 1학년</option><option>중학 2학년</option><option>중학 3학년</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">학생 본인 연락처</label>
+      <input type="tel" id="f-student-phone" placeholder="010-0000-0000">
+    </div>
+    <div class="form-group">
+      <label class="form-label">부모님 연락처</label>
+      <input type="tel" id="f-phone" placeholder="010-0000-0000">
+    </div>
+    <div class="form-group">
+      <label class="form-label">등원 요일 및 시간</label>
+      <p style="font-size:12px;color:var(--text-muted);margin-bottom:8px">오는 요일만 체크하고, 요일마다 시간을 다르게 정할 수 있어요</p>
+      <div class="day-time-list" id="day-time-list"></div>
+    </div>
+    <div style="margin-top:20px;display:flex;gap:10px">
+      <button class="btn btn-outline" style="flex:1;padding:12px" onclick="document.getElementById('modal-add').classList.remove('open')">취소</button>
+      <button class="btn btn-primary" style="flex:2;padding:12px" id="save-btn" onclick="saveStudent()">등록하기</button>
+    </div>
+    <button class="btn btn-danger" id="delete-btn" style="width:100%;padding:12px;margin-top:10px;display:none" onclick="deleteStudent()">🗑 이 학생 삭제하기</button>
+  </div>
+</div>
+
+<!-- 입회원서 불러오기 모달 -->
+<div class="modal-bg" id="modal-forms" onclick="closeFormModal(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📋 입회원서 신청 목록</div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">부모님이 작성한 입회원서예요. 등록할 학생을 눌러 학생 목록에 추가하세요.</p>
+    <div id="form-list"></div>
+    <button class="btn btn-outline" style="width:100%;padding:12px;margin-top:14px" onclick="document.getElementById('modal-forms').classList.remove('open')">닫기</button>
+  </div>
+</div>
+
+<!-- 토스트 -->
+<div class="toast" id="toast"></div>
+
+<script>
+// ── 클라우드 연동 설정 ──────────────────────────────────
+// 구글 시트와 연결된 앱스 스크립트 주소
+const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbwIsA4E1JUWA3yDx_hlSqCtFOKkDCX8CJEHxV2NfOJZr750rdywwrCbuhDl3G_MX3QU/exec';
+
+// ── 데이터 ──────────────────────────────────────────────
+let students = JSON.parse(localStorage.getItem('students_v2') || 'null');
+let logs = JSON.parse(localStorage.getItem('logs') || '[]');
+let editingId = null;
+let cloudSyncing = false;
+const COLORS = ['av-blue','av-green','av-amber','av-purple','av-pink','av-teal'];
+const DAYS = ['월','화','수','목','금'];
+const todayKey = new Date().toISOString().slice(0,10);
+
+// 로컬 저장 (항상 실행 - 오프라인 백업)
+function saveLocal() {
+  localStorage.setItem('students_v2', JSON.stringify(students));
+  localStorage.setItem('logs', JSON.stringify(logs));
+}
+
+// 저장 = 로컬 + 클라우드
+function save() {
+  saveLocal();
+  saveToCloud();
+}
+
+// ── 클라우드에 저장 (구글 시트로 전송) ──────────────────
+function saveToCloud() {
+  if (!CLOUD_URL) return;
+  // 시트 저장에 적합한 형태로 변환 (schedule 객체를 문자열로)
+  const studentsFlat = students.map(s => ({
+    id: s.id, name: s.name, grade: s.grade,
+    studentPhone: s.studentPhone || '', phone: s.phone || '',
+    schedule: JSON.stringify(s.schedule || {}),
+    present: s.present ? 1 : 0,
+    memo: s.memo || ''
+  }));
+  fetch(CLOUD_URL, {
+    method: 'POST',
+    // no-cors: 구글 스크립트 특성상 응답은 못 받지만 저장은 됨
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'saveAll', students: studentsFlat, logs: logs })
+  }).then(() => {
+    setCloudStatus('saved');
+  }).catch(() => {
+    setCloudStatus('error');
+  });
+}
+
+// ── 클라우드에서 불러오기 (구글 시트에서 읽기) ──────────
+async function loadFromCloud() {
+  if (!CLOUD_URL) return false;
+  setCloudStatus('loading');
+  try {
+    const res = await fetch(CLOUD_URL + '?action=all');
+    const data = await res.json();
+    // 시트에서 온 학생 데이터를 앱 형식으로 복원
+    if (data.students && data.students.length >= 0) {
+      students = (data.students || []).map(s => ({
+        id: Number(s.id) || Date.now(),
+        name: s.name || '',
+        grade: s.grade || '',
+        studentPhone: s.studentPhone || '',
+        phone: (s.phone !== undefined && s.phone !== '') ? String(s.phone) : '',
+        schedule: parseSchedule(s.schedule),
+        present: (s.present === 1 || s.present === '1' || s.present === true),
+        memo: s.memo || ''
+      }));
+    }
+    if (data.logs) {
+      logs = (data.logs || []).map(l => ({
+        sid: Number(l.sid), name: l.name, date: String(l.date),
+        time: String(l.time), type: l.type
+      }));
+    }
+    // 새 입회원서(폼 응답)도 함께 저장해둠
+    window._formResponses = data.formResponses || [];
+    saveLocal();
+    setCloudStatus('saved');
+    return true;
+  } catch (err) {
+    setCloudStatus('error');
+    return false;
+  }
+}
+
+function parseSchedule(v) {
+  if (!v) return {};
+  if (typeof v === 'object') return v;
+  try { return JSON.parse(v); } catch (e) { return {}; }
+}
+
+// ── 클라우드 상태 표시 ──────────────────────────────────
+function setCloudStatus(state) {
+  const el = document.getElementById('cloud-status');
+  if (!el) return;
+  const map = {
+    loading: '☁️ 동기화 중...',
+    saved: '☁️ 저장됨',
+    error: '⚠️ 연결 실패 (폰에는 저장됨)'
+  };
+  el.textContent = map[state] || '';
+  el.className = 'cloud-status ' + state;
+}
+
+function initials(name) { return (name||'').slice(0,2); }
+function colorFor(idx) { return COLORS[idx % COLORS.length]; }
+function nowTime() {
+  const n = new Date();
+  return n.getHours().toString().padStart(2,'0') + ':' + n.getMinutes().toString().padStart(2,'0');
+}
+// 학생의 요일 목록 (schedule 객체의 key)
+function studentDays(s) { return Object.keys(s.schedule || {}); }
+
+// ── 기존 데이터 마이그레이션 (v1 → v2) ──────────────────
+function migrateOld() {
+  const old = JSON.parse(localStorage.getItem('students') || 'null');
+  if (old && Array.isArray(old)) {
+    return old.map(s => {
+      const schedule = {};
+      (s.days || []).forEach(d => { schedule[d] = s.time || '15:00'; });
+      return {
+        id: s.id, name: s.name, grade: s.grade,
+        studentPhone: s.studentPhone || '',
+        phone: s.phone || '',
+        schedule, present: s.present || false
+      };
+    });
+  }
+  return null;
+}
+
+// ── 초기화 ───────────────────────────────────────────────
+async function init() {
+  // 1) 우선 로컬에 있는 것으로 빠르게 화면 표시 (있으면)
+  if (!students) students = migrateOld();
+  if (!students) students = [];
+  renderAll();
+  updateSMSToggleUI();
+
+  // 2) 클라우드에서 최신 데이터 불러와 덮어쓰기
+  const ok = await loadFromCloud();
+  if (ok) {
+    renderAll();
+  }
+}
+
+// 화면 전체 다시 그리기
+function renderAll() {
+  updateHeader();
+  renderDashboard();
+  renderStudentList();
+  renderSchedule();
+  renderLog();
+  updateQuickSelect();
+  updateFormBadge();
+}
+
+function updateHeader() {
+  const d = new Date();
+  const days = ['일','월','화','수','목','금','토'];
+  document.getElementById('header-date').textContent =
+    d.getFullYear() + '년 ' + (d.getMonth()+1) + '월 ' + d.getDate() + '일 (' + days[d.getDay()] + ')';
+  const cnt = students.filter(s=>s.present).length;
+  document.getElementById('header-badge').textContent = '재실 ' + cnt + '명';
+}
+
+// ── 탭 전환 ──────────────────────────────────────────────
+function switchTab(name, el) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('active');
+  if (el) el.classList.add('active');
+  if (name === 'log') renderLog();
+}
+
+// ── 대시보드 ─────────────────────────────────────────────
+function renderDashboard() {
+  const present = students.filter(s=>s.present);
+  const todayIn = logs.filter(l=>l.date===todayKey && l.type==='in');
+  const todayOut = logs.filter(l=>l.date===todayKey && l.type==='out');
+  document.getElementById('m-present').textContent = present.length;
+  document.getElementById('m-today').textContent = todayIn.length;
+  document.getElementById('m-total').textContent = students.length;
+  document.getElementById('m-out').textContent = todayOut.length;
+
+  const card = document.getElementById('present-card');
+  if (present.length === 0) {
+    card.innerHTML = '<div class="empty-state"><div class="empty-icon">🏫</div><div class="empty-text">아직 입실한 학생이 없어요</div></div>';
+    updateHeader();
+    return;
+  }
+  card.innerHTML = present.map((s) => {
+    const inLog = logs.filter(l=>l.sid===s.id && l.date===todayKey && l.type==='in').pop();
+    return `<div class="student-row">
+      <div class="avatar ${colorFor(students.indexOf(s))}">${initials(s.name)}</div>
+      <div class="student-info">
+        <div class="student-name">${s.name}</div>
+        <div class="student-sub">${s.grade}</div>
+      </div>
+      <span class="student-time">${inLog ? inLog.time : '--:--'}</span>
+      <button class="btn btn-danger btn-sm" onclick="checkOut(${s.id})">퇴실</button>
+    </div>`;
+  }).join('');
+  updateHeader();
+}
+
+function quickCheckIn() {
+  const sel = document.getElementById('quick-select');
+  const id = parseInt(sel.value);
+  if (!id) return;
+  checkIn(id);
+  sel.value = '';
+}
+
+function checkIn(id) {
+  const s = students.find(x=>x.id===id);
+  if (!s || s.present) return;
+  s.present = true;
+  const t = nowTime();
+  logs.push({ sid:id, name:s.name, date:todayKey, time:t, type:'in' });
+  save();
+  renderDashboard();
+  renderLog();
+  updateQuickSelect();
+  showToast('✅ ' + s.name + ' 입실 완료');
+  maybeSendSMS(s, 'in', t);
+}
+
+function checkOut(id) {
+  const s = students.find(x=>x.id===id);
+  if (!s || !s.present) return;
+  s.present = false;
+  const t = nowTime();
+  logs.push({ sid:id, name:s.name, date:todayKey, time:t, type:'out' });
+  save();
+  renderDashboard();
+  renderLog();
+  updateQuickSelect();
+  showToast('👋 ' + s.name + ' 퇴실 완료');
+  maybeSendSMS(s, 'out', t);
+}
+
+// ── SMS 반자동 발송 ──────────────────────────────────────
+// 입퇴실 시 부모님 번호로 문자 앱을 열고 내용을 미리 채워줌.
+// "보내기"만 누르면 발송됨 (무료).
+function maybeSendSMS(s, type, time) {
+  if (!smsEnabled()) return;          // 설정에서 꺼두면 발송 안 함
+  if (!s.phone) {                     // 부모님 번호 없으면 건너뜀
+    showToast('⚠️ ' + s.name + ' 부모님 번호가 없어요');
+    return;
+  }
+  const academyName = '새샘수학';
+  const word = (type === 'in') ? '등원' : '하원';
+  const body = `[${academyName}] ${s.name} 학생이 ${time}에 ${word}했습니다.`;
+  // 번호에서 하이픈/공백 제거
+  const num = s.phone.replace(/[^0-9+]/g, '');
+  // iOS는 sms:번호&body=, 안드로이드는 sms:번호?body= 형식이 더 안정적
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const sep = isIOS ? '&' : '?';
+  const url = `sms:${num}${sep}body=${encodeURIComponent(body)}`;
+  // 약간의 딜레이 후 문자 앱 열기 (토스트가 보이도록)
+  setTimeout(() => { window.location.href = url; }, 400);
+}
+
+function smsEnabled() {
+  return localStorage.getItem('smsEnabled') !== 'off';
+}
+function toggleSMS() {
+  const on = smsEnabled();
+  localStorage.setItem('smsEnabled', on ? 'off' : 'on');
+  updateSMSToggleUI();
+  showToast(on ? '🔕 문자 알림 꺼짐' : '🔔 문자 알림 켜짐');
+}
+function updateSMSToggleUI() {
+  const el = document.getElementById('sms-toggle');
+  if (!el) return;
+  const on = smsEnabled();
+  el.checked = on;
+  document.getElementById('sms-status-text').textContent = on ? '켜짐' : '꺼짐';
+}
+
+
+function updateQuickSelect() {
+  const sel = document.getElementById('quick-select');
+  const absent = students.filter(s=>!s.present);
+  sel.innerHTML = '<option value="">학생 선택...</option>' +
+    absent.map(s=>`<option value="${s.id}">${s.name} (${s.grade})</option>`).join('');
+}
+
+// ── 학생 목록 ────────────────────────────────────────────
+function renderStudentList() {
+  const card = document.getElementById('student-list-card');
+  if (students.length === 0) {
+    card.innerHTML = '<div class="empty-state"><div class="empty-icon">👤</div><div class="empty-text">등록된 학생이 없어요</div></div>';
+    return;
+  }
+  card.innerHTML = students.map((s, i) => {
+    // 요일별 시간 표시 (예: 월 14:30 · 수 15:00)
+    const sched = studentDays(s).map(d => `${d} ${s.schedule[d]}`).join(' · ');
+    const studentPhoneHtml = s.studentPhone
+      ? `<div class="student-sub">학생 <a class="contact-link" href="tel:${s.studentPhone}">${s.studentPhone}</a></div>` : '';
+    const parentPhoneHtml = s.phone
+      ? `<div class="student-sub">부모 <a class="contact-link" href="tel:${s.phone}">${s.phone}</a></div>` : '';
+    const memoHtml = s.memo
+      ? `<div class="student-sub" style="color:var(--text-muted);font-size:11px">${s.memo}</div>` : '';
+    return `
+    <div class="student-row" onclick="openEditStudent(${s.id})" style="cursor:pointer">
+      <div class="avatar ${colorFor(i)}">${initials(s.name)}</div>
+      <div class="student-info">
+        <div class="student-name">${s.name}</div>
+        <div class="student-sub">${s.grade} · ${sched || '요일 미설정'}</div>
+        ${studentPhoneHtml}
+        ${parentPhoneHtml}
+        ${memoHtml}
+      </div>
+      <span class="badge ${s.present ? 'badge-in' : 'badge-out'}">${s.present ? '재실' : '외출'}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── 요일별 시간 입력 UI 만들기 ──────────────────────────
+function buildDayTimeRows(schedule) {
+  const list = document.getElementById('day-time-list');
+  schedule = schedule || {};
+  list.innerHTML = DAYS.map(d => {
+    const on = schedule[d] !== undefined;
+    const time = schedule[d] || '15:00';
+    return `
+      <div class="day-time-row ${on ? 'on' : 'off'}" id="dtr-${d}">
+        <label class="day-toggle">
+          <input type="checkbox" class="day-cb" value="${d}" ${on ? 'checked' : ''} onchange="toggleDay('${d}')">
+          <span class="day-name">${d}요일</span>
+        </label>
+        <input type="time" class="day-time-input" id="dt-${d}" value="${time}">
+      </div>`;
+  }).join('');
+}
+
+function toggleDay(d) {
+  const row = document.getElementById('dtr-' + d);
+  const cb = row.querySelector('.day-cb');
+  if (cb.checked) { row.classList.add('on'); row.classList.remove('off'); }
+  else { row.classList.remove('on'); row.classList.add('off'); }
+}
+
+// ── 학생 추가/수정 ───────────────────────────────────────
+function openAddStudent() {
+  editingId = null;
+  document.getElementById('modal-title-text').textContent = '새 학생 등록';
+  document.getElementById('save-btn').textContent = '등록하기';
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-grade').value = '';
+  document.getElementById('f-student-phone').value = '';
+  document.getElementById('f-phone').value = '';
+  buildDayTimeRows({});
+  document.getElementById('delete-btn').style.display = 'none';
+  document.getElementById('modal-add').classList.add('open');
+}
+
+function openEditStudent(id) {
+  const s = students.find(x=>x.id===id);
+  if (!s) return;
+  editingId = id;
+  document.getElementById('modal-title-text').textContent = '학생 정보 수정';
+  document.getElementById('save-btn').textContent = '저장하기';
+  document.getElementById('f-name').value = s.name;
+  document.getElementById('f-grade').value = s.grade;
+  document.getElementById('f-student-phone').value = s.studentPhone || '';
+  document.getElementById('f-phone').value = s.phone || '';
+  buildDayTimeRows(s.schedule);
+  document.getElementById('delete-btn').style.display = 'block';
+  document.getElementById('modal-add').classList.add('open');
+}
+
+function closeModal(e) {
+  if (e.target === document.getElementById('modal-add')) {
+    document.getElementById('modal-add').classList.remove('open');
+  }
+}
+
+function saveStudent() {
+  const name = document.getElementById('f-name').value.trim();
+  const grade = document.getElementById('f-grade').value;
+  const studentPhone = document.getElementById('f-student-phone').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  if (!name || !grade) { showToast('⚠️ 이름과 학년을 입력해주세요'); return; }
+
+  // 체크된 요일별 시간 모으기
+  const schedule = {};
+  DAYS.forEach(d => {
+    const cb = document.querySelector('.day-cb[value="'+d+'"]');
+    if (cb && cb.checked) {
+      schedule[d] = document.getElementById('dt-'+d).value;
+    }
+  });
+
+  if (editingId) {
+    const s = students.find(x=>x.id===editingId);
+    s.name = name; s.grade = grade; s.studentPhone = studentPhone; s.phone = phone; s.schedule = schedule;
+    showToast('✅ ' + name + ' 정보 수정 완료');
+  } else {
+    students.push({ id: Date.now(), name, grade, studentPhone, phone, schedule, present:false });
+    showToast('✅ ' + name + ' 등록 완료');
+  }
+  save();
+  document.getElementById('modal-add').classList.remove('open');
+  renderStudentList();
+  renderSchedule();
+  updateQuickSelect();
+  renderDashboard();
+}
+
+// ── 학생 삭제 ────────────────────────────────────────────
+function deleteStudent() {
+  if (!editingId) return;
+  const s = students.find(x=>x.id===editingId);
+  if (!s) return;
+  if (!confirm(s.name + ' 학생을 삭제할까요?\n삭제하면 되돌릴 수 없어요.')) return;
+  students = students.filter(x=>x.id!==editingId);
+  save();
+  editingId = null;
+  document.getElementById('modal-add').classList.remove('open');
+  renderStudentList();
+  renderSchedule();
+  updateQuickSelect();
+  renderDashboard();
+  showToast('🗑 ' + s.name + ' 삭제 완료');
+}
+
+// ── 입회원서(폼 응답) 불러오기 ──────────────────────────
+// 폼 응답의 열 이름은 구글 폼 질문 제목과 같음.
+// 값이 없을 수 있으니 여러 후보 이름으로 찾음.
+function pickField(row, names) {
+  for (const n of names) {
+    for (const key of Object.keys(row)) {
+      if (key.replace(/\s/g,'').includes(n.replace(/\s/g,''))) {
+        if (row[key] !== '' && row[key] !== undefined && row[key] !== null) return String(row[key]);
+      }
+    }
+  }
+  return '';
+}
+
+// 폼 응답 한 줄 → 학교/학년 텍스트 합치기
+function pickSchool(row) {
+  const mid = pickField(row, ['재학중인학교[중학교]','중학교']);
+  const elem = pickField(row, ['재학중인학교[초등','초등']);
+  const etc = pickField(row, ['재학중인학교[기타]','재학중인학교[행','기타']);
+  return mid || elem || etc || '';
+}
+
+// 학년 + 학교를 합쳐서 표시 (예: "중학 1학년 · 집현중")
+function pickGradeSchool(row) {
+  const grade = pickField(row, ['학생재학학년','재학학년','학년']);
+  const school = pickSchool(row);
+  if (grade && school) return grade + ' · ' + school;
+  return grade || school || '';
+}
+
+// 전화번호 정규화 (비교용): 숫자만 남기고 앞의 0 유지
+function normPhone(v) {
+  return String(v == null ? '' : v).replace(/[^0-9]/g, '');
+}
+
+function updateFormBadge() {
+  const responses = window._formResponses || [];
+  // 이미 등록된 학생 이름+연락처는 제외
+  const pending = responses.filter(r => !isAlreadyRegistered(r));
+  const badge = document.getElementById('form-badge');
+  if (badge) {
+    if (pending.length > 0) {
+      badge.style.display = 'inline-block';
+      badge.textContent = pending.length;
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+function isAlreadyRegistered(row) {
+  const name = pickField(row, ['학생이름','학생성명','이름']);
+  const phone = normPhone(pickField(row, ['학생연락처','학생연락']));
+  return students.some(s => {
+    if (s.name !== name) return false;
+    // 이름이 같고, 연락처도 같으면(또는 폼에 연락처 없으면) 이미 등록으로 간주
+    const sPhone = normPhone(s.studentPhone);
+    return !phone || !sPhone || sPhone === phone;
+  });
+}
+
+function openFormResponses() {
+  const responses = window._formResponses || [];
+  const list = document.getElementById('form-list');
+  const pending = responses.filter(r => !isAlreadyRegistered(r));
+
+  if (pending.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">새로운 입회원서가 없어요<br><span style="font-size:12px">모두 등록되었거나 아직 신청이 없어요</span></div></div>';
+  } else {
+    list.innerHTML = pending.map((r, i) => {
+      const name = pickField(r, ['학생이름','학생성명','이름']) || '(이름없음)';
+      const sphone = pickField(r, ['학생연락처']);
+      const pname = pickField(r, ['보호자성명','보호자이름']);
+      const pphone = pickField(r, ['보호자연락처']);
+      const gradeSchool = pickGradeSchool(r);
+      const birth = pickField(r, ['생년월일']);
+      const idx = responses.indexOf(r);
+      return `
+        <div class="form-response-row" onclick="importOne(${idx})">
+          <div class="student-info">
+            <div class="student-name">${name} <span style="font-size:12px;color:var(--text-muted)">${gradeSchool}</span></div>
+            <div class="student-sub">학생 ${sphone || '-'} · 보호자 ${pname||''} ${pphone||'-'}</div>
+            ${birth ? `<div class="student-sub">생년월일 ${birth}</div>` : ''}
+          </div>
+          <button class="btn btn-success btn-sm">+ 등록</button>
+        </div>`;
+    }).join('');
+  }
+  document.getElementById('modal-forms').classList.add('open');
+}
+
+function importOne(idx) {
+  const responses = window._formResponses || [];
+  const r = responses[idx];
+  if (!r) return;
+  const name = pickField(r, ['학생이름','학생성명','이름']) || '(이름없음)';
+  // 전화번호는 앞의 0이 살아있도록 문자열 처리
+  let sPhone = pickField(r, ['학생연락처']);
+  let pPhone = pickField(r, ['보호자연락처']);
+  // 010으로 시작하는데 0이 빠진 경우 보정 (10... → 010...)
+  if (sPhone && /^10\d{8}$/.test(sPhone)) sPhone = '0' + sPhone;
+  if (pPhone && /^10\d{8}$/.test(pPhone)) pPhone = '0' + pPhone;
+  const student = {
+    id: Date.now(),
+    name: name,
+    grade: pickGradeSchool(r),
+    studentPhone: sPhone,
+    phone: pPhone,
+    schedule: {}, // 요일/시간은 상담 후 앱에서 입력
+    present: false,
+    memo: [
+      pickField(r, ['생년월일']) ? '생년월일: ' + pickField(r, ['생년월일']) : '',
+      pickField(r, ['주소']) ? '주소: ' + pickField(r, ['주소']) : '',
+      pickField(r, ['보호자성명','보호자이름']) ? '보호자: ' + pickField(r, ['보호자성명','보호자이름']) : '',
+      pickField(r, ['교육비납부방법','납부방법']) ? '납부: ' + pickField(r, ['교육비납부방법','납부방법']) : ''
+    ].filter(Boolean).join(' / ')
+  };
+  students.push(student);
+  save();
+  renderStudentList();
+  updateQuickSelect();
+  renderDashboard();
+  showToast('✅ ' + name + ' 등록 완료 (요일/시간은 학생을 눌러 입력하세요)');
+  openFormResponses(); // 목록 새로고침
+  updateFormBadge();
+}
+
+function closeFormModal(e) {
+  if (e.target === document.getElementById('modal-forms')) {
+    document.getElementById('modal-forms').classList.remove('open');
+  }
+}
+
+// ── 수동 동기화 (상태 표시 탭하면 실행) ─────────────────
+async function manualSync() {
+  showToast('☁️ 최신 정보 불러오는 중...');
+  const ok = await loadFromCloud();
+  if (ok) {
+    renderAll();
+    updateFormBadge();
+    showToast('✅ 동기화 완료');
+  } else {
+    showToast('⚠️ 연결 실패 (인터넷 확인)');
+  }
+}
+
+// ── 시간표 ───────────────────────────────────────────────
+const MAX_SEATS = 5; // 한 타임 최대 인원
+
+function renderSchedule() {
+  // 등록된 모든 시간을 모아서 행(시간대)을 자동 생성
+  const timeSet = new Set();
+  students.forEach(s => Object.values(s.schedule || {}).forEach(t => timeSet.add(t)));
+  const times = [...timeSet].sort();
+  const body = document.getElementById('schedule-body');
+
+  if (times.length === 0) {
+    body.innerHTML = '<tr><td colspan="6" style="padding:24px;color:var(--text-muted)">등록된 일정이 없어요</td></tr>';
+    return;
+  }
+
+  body.innerHTML = times.map(t => {
+    const cells = DAYS.map(d => {
+      const who = students.filter(s => s.schedule && s.schedule[d] === t);
+      // 5자리를 만들어서 채워진 자리는 이름, 빈 자리는 '빈자리'로 표시
+      let seatsHtml = '';
+      for (let i = 0; i < MAX_SEATS; i++) {
+        if (who[i]) {
+          seatsHtml += `<div class="seat seat-taken">${who[i].name}</div>`;
+        } else {
+          seatsHtml += `<div class="seat seat-empty">빈자리</div>`;
+        }
+      }
+      const isFull = who.length >= MAX_SEATS;
+      const countLabel = `<div class="seat-count ${isFull ? 'seat-full' : ''}">${who.length}/${MAX_SEATS}${isFull ? ' 마감' : ''}</div>`;
+      return `<td class="seat-cell">${countLabel}${seatsHtml}</td>`;
+    }).join('');
+    return `<tr><td class="time-col">${t}</td>${cells}</tr>`;
+  }).join('');
+}
+
+// ── 출결 기록 ────────────────────────────────────────────
+function renderLog() {
+  const todayLogs = logs.filter(l=>l.date===todayKey).reverse();
+  const logCard = document.getElementById('log-card');
+  if (todayLogs.length === 0) {
+    logCard.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">오늘 기록이 없어요</div></div>';
+  } else {
+    logCard.innerHTML = todayLogs.map(l=>`
+      <div class="log-item">
+        <div class="log-dot ${l.type==='in'?'dot-in':'dot-out'}"></div>
+        <div class="log-time">${l.time}</div>
+        <div class="log-name">${l.name}</div>
+        <div class="log-type">${l.type==='in'?'입실':'퇴실'}</div>
+      </div>
+    `).join('');
+  }
+  renderMonthStat();
+}
+
+// ── 월별 출석 통계 ───────────────────────────────────────
+// 현재 보고 있는 연/월 (기본: 이번 달)
+let statYear = new Date().getFullYear();
+let statMonth = new Date().getMonth() + 1; // 1~12
+
+function changeMonth(delta) {
+  statMonth += delta;
+  if (statMonth < 1) { statMonth = 12; statYear--; }
+  else if (statMonth > 12) { statMonth = 1; statYear++; }
+  renderMonthStat();
+}
+
+function renderMonthStat() {
+  const label = document.getElementById('month-label');
+  if (label) label.textContent = statYear + '년 ' + statMonth + '월';
+  const card = document.getElementById('month-stat-card');
+  if (!card) return;
+
+  const prefix = statYear + '-' + String(statMonth).padStart(2, '0'); // 예: 2026-06
+
+  // 학생별로 그 달에 '입실(in)'한 날짜들을 모음
+  const stat = students.map(s => {
+    // 이 학생의 해당 월 로그
+    const myLogs = logs.filter(l => l.sid === s.id && l.date.startsWith(prefix));
+    // 날짜별로 입실/퇴실 시간 정리
+    const byDate = {};
+    myLogs.forEach(l => {
+      if (!byDate[l.date]) byDate[l.date] = { in: null, out: null };
+      if (l.type === 'in' && !byDate[l.date].in) byDate[l.date].in = l.time;
+      if (l.type === 'out') byDate[l.date].out = l.time;
+    });
+    // 출석일 = 입실 기록이 있는 날의 수
+    const attendedDates = Object.keys(byDate).filter(d => byDate[d].in).sort();
+    return { s, count: attendedDates.length, byDate, attendedDates };
+  });
+
+  // 출석이 있는 학생이 하나도 없으면 빈 상태
+  const anyData = stat.some(x => x.count > 0);
+  if (students.length === 0) {
+    card.innerHTML = '<div class="empty-state"><div class="empty-icon">👤</div><div class="empty-text">등록된 학생이 없어요</div></div>';
+    return;
+  }
+  if (!anyData) {
+    card.innerHTML = '<div class="empty-state"><div class="empty-icon">📂</div><div class="empty-text">' + statMonth + '월 출석 기록이 없어요</div></div>';
+    return;
+  }
+
+  // 출석일 많은 순으로 정렬
+  stat.sort((a, b) => b.count - a.count);
+
+  card.innerHTML = stat.map((x, i) => {
+    const s = x.s;
+    const detail = x.attendedDates.map(d => {
+      const day = parseInt(d.split('-')[2]);
+      const rec = x.byDate[d];
+      const times = (rec.in ? '입실 ' + rec.in : '') + (rec.out ? ' · 퇴실 ' + rec.out : '');
+      return `<div class="stat-day"><span class="stat-day-date">${statMonth}/${day}</span><span class="stat-day-times">${times}</span></div>`;
+    }).join('');
+    return `
+      <div class="stat-row" id="stat-${s.id}">
+        <div class="stat-head" onclick="toggleStat(${s.id})">
+          <div class="avatar ${colorFor(students.indexOf(s))}">${initials(s.name)}</div>
+          <div class="student-info">
+            <div class="student-name">${s.name}</div>
+            <div class="student-sub">${s.grade}</div>
+          </div>
+          <span class="stat-count">${x.count}일 출석</span>
+          <span class="stat-chevron">▶</span>
+        </div>
+        <div class="stat-detail">${detail || '<div style="font-size:13px;color:var(--text-muted);padding:6px 0">상세 기록 없음</div>'}</div>
+      </div>`;
+  }).join('');
+}
+
+function toggleStat(id) {
+  const row = document.getElementById('stat-' + id);
+  if (row) row.classList.toggle('open');
+}
+
+
+
+// ── 토스트 ───────────────────────────────────────────────
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>t.classList.remove('show'), 2500);
+}
+
+init();
+</script>
+</body>
+</html>
