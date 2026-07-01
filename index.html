@@ -167,6 +167,19 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
 /* 연락처 링크 */
 .contact-link { color: var(--primary); text-decoration: none; }
 
+/* 클라우드 동기화 상태 */
+.cloud-status { font-size: 11px; color: var(--text-muted); margin-top: 6px; cursor: pointer; display: inline-block; }
+.cloud-status.saved { color: var(--success); }
+.cloud-status.error { color: var(--danger); }
+.cloud-status.loading { color: var(--text-muted); }
+
+/* 입회원서 배지 */
+.form-badge { background: var(--danger); color: white; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 20px; margin-left: 4px; }
+
+/* 폼 응답 행 */
+.form-response-row { display: flex; align-items: center; gap: 10px; padding: 12px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer; }
+.form-response-row:active { background: var(--surface); }
+
 /* 월별 통계 */
 .month-nav { display: flex; align-items: center; justify-content: space-between; background: var(--white); border: 1px solid var(--border); border-radius: 12px; padding: 8px 12px; margin-bottom: 12px; }
 .month-arrow { background: var(--surface); border: none; width: 36px; height: 36px; border-radius: 8px; font-size: 14px; color: var(--primary); cursor: pointer; }
@@ -205,6 +218,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
       </div>
       <div class="header-badge" id="header-badge">재실 0명</div>
     </div>
+    <div class="cloud-status loading" id="cloud-status" onclick="manualSync()">☁️ 동기화 중...</div>
   </div>
 
   <!-- 콘텐츠 -->
@@ -265,8 +279,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
 
     <!-- 학생 관리 -->
     <div class="section" id="sec-students">
-      <button class="btn btn-primary btn-full" onclick="openAddStudent()" style="margin-bottom:16px">
+      <button class="btn btn-primary btn-full" onclick="openAddStudent()" style="margin-bottom:10px">
         + 새 학생 등록
+      </button>
+      <button class="btn btn-outline btn-full" onclick="openFormResponses()" style="margin-bottom:16px">
+        📋 입회원서에서 불러오기 <span id="form-badge" class="form-badge" style="display:none">0</span>
       </button>
       <div class="section-title">전체 학생</div>
       <div class="card" id="student-list-card"></div>
@@ -373,24 +390,127 @@ input:focus, select:focus, textarea:focus { border-color: var(--primary); }
   </div>
 </div>
 
+<!-- 입회원서 불러오기 모달 -->
+<div class="modal-bg" id="modal-forms" onclick="closeFormModal(event)">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📋 입회원서 신청 목록</div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px">부모님이 작성한 입회원서예요. 등록할 학생을 눌러 학생 목록에 추가하세요.</p>
+    <div id="form-list"></div>
+    <button class="btn btn-outline" style="width:100%;padding:12px;margin-top:14px" onclick="document.getElementById('modal-forms').classList.remove('open')">닫기</button>
+  </div>
+</div>
+
 <!-- 토스트 -->
 <div class="toast" id="toast"></div>
 
 <script>
+// ── 클라우드 연동 설정 ──────────────────────────────────
+// 구글 시트와 연결된 앱스 스크립트 주소
+const CLOUD_URL = 'https://script.google.com/macros/s/AKfycbwIsA4E1JUWA3yDx_hlSqCtFOKkDCX8CJEHxV2NfOJZr750rdywwrCbuhDl3G_MX3QU/exec';
+
 // ── 데이터 ──────────────────────────────────────────────
 let students = JSON.parse(localStorage.getItem('students_v2') || 'null');
 let logs = JSON.parse(localStorage.getItem('logs') || '[]');
 let editingId = null;
+let cloudSyncing = false;
 const COLORS = ['av-blue','av-green','av-amber','av-purple','av-pink','av-teal'];
 const DAYS = ['월','화','수','목','금'];
 const todayKey = new Date().toISOString().slice(0,10);
 
-function save() {
+// 로컬 저장 (항상 실행 - 오프라인 백업)
+function saveLocal() {
   localStorage.setItem('students_v2', JSON.stringify(students));
   localStorage.setItem('logs', JSON.stringify(logs));
 }
 
-function initials(name) { return name.slice(0,2); }
+// 저장 = 로컬 + 클라우드
+function save() {
+  saveLocal();
+  saveToCloud();
+}
+
+// ── 클라우드에 저장 (구글 시트로 전송) ──────────────────
+function saveToCloud() {
+  if (!CLOUD_URL) return;
+  // 시트 저장에 적합한 형태로 변환 (schedule 객체를 문자열로)
+  const studentsFlat = students.map(s => ({
+    id: s.id, name: s.name, grade: s.grade,
+    studentPhone: s.studentPhone || '', phone: s.phone || '',
+    schedule: JSON.stringify(s.schedule || {}),
+    present: s.present ? 1 : 0,
+    memo: s.memo || ''
+  }));
+  fetch(CLOUD_URL, {
+    method: 'POST',
+    // no-cors: 구글 스크립트 특성상 응답은 못 받지만 저장은 됨
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ action: 'saveAll', students: studentsFlat, logs: logs })
+  }).then(() => {
+    setCloudStatus('saved');
+  }).catch(() => {
+    setCloudStatus('error');
+  });
+}
+
+// ── 클라우드에서 불러오기 (구글 시트에서 읽기) ──────────
+async function loadFromCloud() {
+  if (!CLOUD_URL) return false;
+  setCloudStatus('loading');
+  try {
+    const res = await fetch(CLOUD_URL + '?action=all');
+    const data = await res.json();
+    // 시트에서 온 학생 데이터를 앱 형식으로 복원
+    if (data.students && data.students.length >= 0) {
+      students = (data.students || []).map(s => ({
+        id: Number(s.id) || Date.now(),
+        name: s.name || '',
+        grade: s.grade || '',
+        studentPhone: s.studentPhone || '',
+        phone: (s.phone !== undefined && s.phone !== '') ? String(s.phone) : '',
+        schedule: parseSchedule(s.schedule),
+        present: (s.present === 1 || s.present === '1' || s.present === true),
+        memo: s.memo || ''
+      }));
+    }
+    if (data.logs) {
+      logs = (data.logs || []).map(l => ({
+        sid: Number(l.sid), name: l.name, date: String(l.date),
+        time: String(l.time), type: l.type
+      }));
+    }
+    // 새 입회원서(폼 응답)도 함께 저장해둠
+    window._formResponses = data.formResponses || [];
+    saveLocal();
+    setCloudStatus('saved');
+    return true;
+  } catch (err) {
+    setCloudStatus('error');
+    return false;
+  }
+}
+
+function parseSchedule(v) {
+  if (!v) return {};
+  if (typeof v === 'object') return v;
+  try { return JSON.parse(v); } catch (e) { return {}; }
+}
+
+// ── 클라우드 상태 표시 ──────────────────────────────────
+function setCloudStatus(state) {
+  const el = document.getElementById('cloud-status');
+  if (!el) return;
+  const map = {
+    loading: '☁️ 동기화 중...',
+    saved: '☁️ 저장됨',
+    error: '⚠️ 연결 실패 (폰에는 저장됨)'
+  };
+  el.textContent = map[state] || '';
+  el.className = 'cloud-status ' + state;
+}
+
+function initials(name) { return (name||'').slice(0,2); }
 function colorFor(idx) { return COLORS[idx % COLORS.length]; }
 function nowTime() {
   const n = new Date();
@@ -418,27 +538,29 @@ function migrateOld() {
 }
 
 // ── 초기화 ───────────────────────────────────────────────
-function init() {
-  if (!students) {
-    students = migrateOld();
+async function init() {
+  // 1) 우선 로컬에 있는 것으로 빠르게 화면 표시 (있으면)
+  if (!students) students = migrateOld();
+  if (!students) students = [];
+  renderAll();
+  updateSMSToggleUI();
+
+  // 2) 클라우드에서 최신 데이터 불러와 덮어쓰기
+  const ok = await loadFromCloud();
+  if (ok) {
+    renderAll();
   }
-  if (!students) {
-    // 샘플 데이터 (처음 실행 시)
-    students = [
-      { id:1, name:'김민준', grade:'초등 5학년', studentPhone:'', phone:'010-1234-5678', schedule:{'월':'14:30','수':'15:00','금':'14:30'}, present:false },
-      { id:2, name:'이서연', grade:'중학 1학년', studentPhone:'', phone:'010-2345-6789', schedule:{'화':'15:00','목':'16:00'}, present:false },
-      { id:3, name:'박지호', grade:'초등 6학년', studentPhone:'', phone:'010-3456-7890', schedule:{'월':'15:10','화':'15:10','수':'15:10','목':'15:10','금':'15:10'}, present:false },
-      { id:4, name:'최유진', grade:'초등 4학년', studentPhone:'', phone:'010-4567-8901', schedule:{'월':'15:30','수':'15:30','금':'15:30'}, present:false },
-    ];
-  }
-  save();
+}
+
+// 화면 전체 다시 그리기
+function renderAll() {
   updateHeader();
   renderDashboard();
   renderStudentList();
   renderSchedule();
   renderLog();
   updateQuickSelect();
-  updateSMSToggleUI();
+  updateFormBadge();
 }
 
 function updateHeader() {
@@ -587,6 +709,8 @@ function renderStudentList() {
       ? `<div class="student-sub">학생 <a class="contact-link" href="tel:${s.studentPhone}">${s.studentPhone}</a></div>` : '';
     const parentPhoneHtml = s.phone
       ? `<div class="student-sub">부모 <a class="contact-link" href="tel:${s.phone}">${s.phone}</a></div>` : '';
+    const memoHtml = s.memo
+      ? `<div class="student-sub" style="color:var(--text-muted);font-size:11px">${s.memo}</div>` : '';
     return `
     <div class="student-row" onclick="openEditStudent(${s.id})" style="cursor:pointer">
       <div class="avatar ${colorFor(i)}">${initials(s.name)}</div>
@@ -595,6 +719,7 @@ function renderStudentList() {
         <div class="student-sub">${s.grade} · ${sched || '요일 미설정'}</div>
         ${studentPhoneHtml}
         ${parentPhoneHtml}
+        ${memoHtml}
       </div>
       <span class="badge ${s.present ? 'badge-in' : 'badge-out'}">${s.present ? '재실' : '외출'}</span>
     </div>`;
@@ -708,6 +833,128 @@ function deleteStudent() {
   updateQuickSelect();
   renderDashboard();
   showToast('🗑 ' + s.name + ' 삭제 완료');
+}
+
+// ── 입회원서(폼 응답) 불러오기 ──────────────────────────
+// 폼 응답의 열 이름은 구글 폼 질문 제목과 같음.
+// 값이 없을 수 있으니 여러 후보 이름으로 찾음.
+function pickField(row, names) {
+  for (const n of names) {
+    for (const key of Object.keys(row)) {
+      if (key.replace(/\s/g,'').includes(n.replace(/\s/g,''))) {
+        if (row[key] !== '' && row[key] !== undefined && row[key] !== null) return String(row[key]);
+      }
+    }
+  }
+  return '';
+}
+
+// 폼 응답 한 줄 → 학교/학년 텍스트 합치기
+function pickSchool(row) {
+  const mid = pickField(row, ['재학중인학교[중학교]','중학교']);
+  const elem = pickField(row, ['재학중인학교[초등','초등']);
+  const etc = pickField(row, ['재학중인학교[기타]','기타']);
+  return mid || elem || etc || '';
+}
+
+function updateFormBadge() {
+  const responses = window._formResponses || [];
+  // 이미 등록된 학생 이름+연락처는 제외
+  const pending = responses.filter(r => !isAlreadyRegistered(r));
+  const badge = document.getElementById('form-badge');
+  if (badge) {
+    if (pending.length > 0) {
+      badge.style.display = 'inline-block';
+      badge.textContent = pending.length;
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+}
+
+function isAlreadyRegistered(row) {
+  const name = pickField(row, ['학생이름','학생성명','이름']);
+  const phone = pickField(row, ['학생연락처','학생연락']);
+  return students.some(s => s.name === name && (s.studentPhone === phone || !phone));
+}
+
+function openFormResponses() {
+  const responses = window._formResponses || [];
+  const list = document.getElementById('form-list');
+  const pending = responses.filter(r => !isAlreadyRegistered(r));
+
+  if (pending.length === 0) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📭</div><div class="empty-text">새로운 입회원서가 없어요<br><span style="font-size:12px">모두 등록되었거나 아직 신청이 없어요</span></div></div>';
+  } else {
+    list.innerHTML = pending.map((r, i) => {
+      const name = pickField(r, ['학생이름','학생성명','이름']) || '(이름없음)';
+      const sphone = pickField(r, ['학생연락처']);
+      const pname = pickField(r, ['보호자성명','보호자이름']);
+      const pphone = pickField(r, ['보호자연락처']);
+      const school = pickSchool(r);
+      const birth = pickField(r, ['생년월일']);
+      const idx = responses.indexOf(r);
+      return `
+        <div class="form-response-row" onclick="importOne(${idx})">
+          <div class="student-info">
+            <div class="student-name">${name} <span style="font-size:12px;color:var(--text-muted)">${school}</span></div>
+            <div class="student-sub">학생 ${sphone || '-'} · 보호자 ${pname||''} ${pphone||'-'}</div>
+            ${birth ? `<div class="student-sub">생년월일 ${birth}</div>` : ''}
+          </div>
+          <button class="btn btn-success btn-sm">+ 등록</button>
+        </div>`;
+    }).join('');
+  }
+  document.getElementById('modal-forms').classList.add('open');
+}
+
+function importOne(idx) {
+  const responses = window._formResponses || [];
+  const r = responses[idx];
+  if (!r) return;
+  const name = pickField(r, ['학생이름','학생성명','이름']) || '(이름없음)';
+  const student = {
+    id: Date.now(),
+    name: name,
+    grade: pickSchool(r),
+    studentPhone: pickField(r, ['학생연락처']),
+    phone: pickField(r, ['보호자연락처']),
+    schedule: {}, // 요일/시간은 상담 후 앱에서 입력
+    present: false,
+    memo: [
+      pickField(r, ['생년월일']) ? '생년월일: ' + pickField(r, ['생년월일']) : '',
+      pickField(r, ['주소']) ? '주소: ' + pickField(r, ['주소']) : '',
+      pickField(r, ['보호자성명','보호자이름']) ? '보호자: ' + pickField(r, ['보호자성명','보호자이름']) : '',
+      pickField(r, ['교육비납부방법','납부방법']) ? '납부: ' + pickField(r, ['교육비납부방법','납부방법']) : ''
+    ].filter(Boolean).join(' / ')
+  };
+  students.push(student);
+  save();
+  renderStudentList();
+  updateQuickSelect();
+  renderDashboard();
+  showToast('✅ ' + name + ' 등록 완료 (요일/시간은 학생을 눌러 입력하세요)');
+  openFormResponses(); // 목록 새로고침
+  updateFormBadge();
+}
+
+function closeFormModal(e) {
+  if (e.target === document.getElementById('modal-forms')) {
+    document.getElementById('modal-forms').classList.remove('open');
+  }
+}
+
+// ── 수동 동기화 (상태 표시 탭하면 실행) ─────────────────
+async function manualSync() {
+  showToast('☁️ 최신 정보 불러오는 중...');
+  const ok = await loadFromCloud();
+  if (ok) {
+    renderAll();
+    updateFormBadge();
+    showToast('✅ 동기화 완료');
+  } else {
+    showToast('⚠️ 연결 실패 (인터넷 확인)');
+  }
 }
 
 // ── 시간표 ───────────────────────────────────────────────
