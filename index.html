@@ -853,8 +853,21 @@ function pickField(row, names) {
 function pickSchool(row) {
   const mid = pickField(row, ['재학중인학교[중학교]','중학교']);
   const elem = pickField(row, ['재학중인학교[초등','초등']);
-  const etc = pickField(row, ['재학중인학교[기타]','기타']);
+  const etc = pickField(row, ['재학중인학교[기타]','재학중인학교[행','기타']);
   return mid || elem || etc || '';
+}
+
+// 학년 + 학교를 합쳐서 표시 (예: "중학 1학년 · 집현중")
+function pickGradeSchool(row) {
+  const grade = pickField(row, ['학생재학학년','재학학년','학년']);
+  const school = pickSchool(row);
+  if (grade && school) return grade + ' · ' + school;
+  return grade || school || '';
+}
+
+// 전화번호 정규화 (비교용): 숫자만 남기고 앞의 0 유지
+function normPhone(v) {
+  return String(v == null ? '' : v).replace(/[^0-9]/g, '');
 }
 
 function updateFormBadge() {
@@ -874,8 +887,13 @@ function updateFormBadge() {
 
 function isAlreadyRegistered(row) {
   const name = pickField(row, ['학생이름','학생성명','이름']);
-  const phone = pickField(row, ['학생연락처','학생연락']);
-  return students.some(s => s.name === name && (s.studentPhone === phone || !phone));
+  const phone = normPhone(pickField(row, ['학생연락처','학생연락']));
+  return students.some(s => {
+    if (s.name !== name) return false;
+    // 이름이 같고, 연락처도 같으면(또는 폼에 연락처 없으면) 이미 등록으로 간주
+    const sPhone = normPhone(s.studentPhone);
+    return !phone || !sPhone || sPhone === phone;
+  });
 }
 
 function openFormResponses() {
@@ -891,13 +909,13 @@ function openFormResponses() {
       const sphone = pickField(r, ['학생연락처']);
       const pname = pickField(r, ['보호자성명','보호자이름']);
       const pphone = pickField(r, ['보호자연락처']);
-      const school = pickSchool(r);
+      const gradeSchool = pickGradeSchool(r);
       const birth = pickField(r, ['생년월일']);
       const idx = responses.indexOf(r);
       return `
         <div class="form-response-row" onclick="importOne(${idx})">
           <div class="student-info">
-            <div class="student-name">${name} <span style="font-size:12px;color:var(--text-muted)">${school}</span></div>
+            <div class="student-name">${name} <span style="font-size:12px;color:var(--text-muted)">${gradeSchool}</span></div>
             <div class="student-sub">학생 ${sphone || '-'} · 보호자 ${pname||''} ${pphone||'-'}</div>
             ${birth ? `<div class="student-sub">생년월일 ${birth}</div>` : ''}
           </div>
@@ -913,12 +931,18 @@ function importOne(idx) {
   const r = responses[idx];
   if (!r) return;
   const name = pickField(r, ['학생이름','학생성명','이름']) || '(이름없음)';
+  // 전화번호는 앞의 0이 살아있도록 문자열 처리
+  let sPhone = pickField(r, ['학생연락처']);
+  let pPhone = pickField(r, ['보호자연락처']);
+  // 010으로 시작하는데 0이 빠진 경우 보정 (10... → 010...)
+  if (sPhone && /^10\d{8}$/.test(sPhone)) sPhone = '0' + sPhone;
+  if (pPhone && /^10\d{8}$/.test(pPhone)) pPhone = '0' + pPhone;
   const student = {
     id: Date.now(),
     name: name,
-    grade: pickSchool(r),
-    studentPhone: pickField(r, ['학생연락처']),
-    phone: pickField(r, ['보호자연락처']),
+    grade: pickGradeSchool(r),
+    studentPhone: sPhone,
+    phone: pPhone,
     schedule: {}, // 요일/시간은 상담 후 앱에서 입력
     present: false,
     memo: [
